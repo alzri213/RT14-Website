@@ -1,45 +1,51 @@
 "use client"
 
 import { useEffect } from "react"
-import { supabase } from "@/lib/supabase"
 import { usePathname } from "next/navigation"
 
 export function VisitorTracker() {
   const pathname = usePathname()
 
   useEffect(() => {
-    console.log('🔍 VisitorTracker: Debugging Supabase...')
-    
-    const testSupabase = async () => {
-      try {
-        console.log('Testing Supabase connection...')
-        
-        // Test select query
-        const { data, error } = await supabase
-          .from('visits')
-          .select('count')
-          .limit(1)
+    const recordVisit = async () => {
+      if (!pathname || pathname.startsWith('/admin')) return
 
-        if (error) {
-          console.error('❌ SUPABASE ERROR:', error)
-          console.error('Message:', error.message)
-          console.error('Details:', error.details)
-          console.error('Hint:', error.hint)
+      try {
+        // Generate or get session ID
+        let sessionId = localStorage.getItem('visitor_session_id')
+        if (!sessionId) {
+          sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          localStorage.setItem('visitor_session_id', sessionId)
+        }
+
+        const visitData = {
+          page: pathname,
+          timestamp: new Date().toISOString(),
+          user_agent: navigator.userAgent,
+          session_id: sessionId,
+        }
+
+        console.log('📝 Recording visit:', visitData)
+
+        const response = await fetch('/api/visits', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(visitData),
+        })
+
+        if (!response.ok) {
+          console.error('Failed to record visit:', response.statusText)
         } else {
-          console.log('✅ Supabase connected successfully:', data)
+          console.log('✅ Visit recorded successfully')
         }
       } catch (error) {
-        console.error('❌ UNEXPECTED ERROR:', error)
+        console.error('❌ Error recording visit:', error)
       }
     }
 
-    testSupabase()
-
-    // ... kode tracking visitor yang asli
-    if (pathname && !pathname.startsWith('/admin')) {
-      console.log('📝 Recording visit to:', pathname)
-      // ... kode insert visit
-    }
+    recordVisit()
   }, [pathname])
 
   return null

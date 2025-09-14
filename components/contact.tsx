@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -54,7 +55,7 @@ export function Contact() {
   const fetchComments = async () => {
     setLoadingComments(true)
     const { data, error } = await supabase
-      .from<Comment>("comments")
+      .from("comments")
       .select("*")
       .order("created_at", { ascending: false })
 
@@ -135,23 +136,37 @@ export function Contact() {
 
       <div className="container mx-auto px-4 relative z-10">
         {/* Header */}
-        <div className="text-center mb-16">
+        <motion.div
+          className="text-center mb-16"
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        >
           <h2 className="text-4xl md:text-5xl font-bold mb-6 text-balance">
             Hubungi Kami
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-pretty">
             Sampaikan pertanyaan, saran, atau keluhan Anda kepada pengurus RT 14
           </p>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Contact Information & Form */}
-          <div className="space-y-8">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl">Informasi Kontak</CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 space-y-6">
+          <motion.div
+            className="space-y-8"
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+          >
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-2xl">Informasi Kontak</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
                 <div className="flex items-start space-x-4">
                   <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
                     <MapPin className="h-6 w-6 text-white" />
@@ -195,8 +210,13 @@ export function Contact() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
 
-            <Card>
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              <Card>
               <CardHeader>
                 <CardTitle className="text-xl">Kirim Pesan Cepat</CardTitle>
               </CardHeader>
@@ -259,11 +279,21 @@ export function Contact() {
                 </form>
               </CardContent>
             </Card>
-          </div>
+            </motion.div>
+          </motion.div>
 
           {/* Comments Section */}
-          <div className="space-y-8">
-            <Card>
+          <motion.div
+            className="space-y-8"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
+          >
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              <Card>
               <CardHeader>
                 <CardTitle className="text-xl flex items-center space-x-2">
                   <MessageCircle className="h-5 w-5" />
@@ -343,7 +373,8 @@ export function Contact() {
                 )}
               </CardContent>
             </Card>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
     </section>

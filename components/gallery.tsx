@@ -68,6 +68,13 @@ export function Gallery() {
     { id: "kegiatan", label: "Kegiatan Warga", icon: Users },
   ]
 
+  // Animation styles for gallery photos
+  const photoAnimation = {
+    initial: { opacity: 0, transform: "translateZ(-100px) scale(0.9)" },
+    animate: { opacity: 1, transform: "translateZ(0) scale(1)" },
+    transition: { duration: 0.8, ease: "easeOut" },
+  }
+
   if (isLoading) {
     return (
       <section id="galeri" className="py-20 relative bg-background">
@@ -94,16 +101,21 @@ export function Gallery() {
 
       <div className="container mx-auto px-4 relative z-10">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6 text-balance">Galeri RT 14</h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-pretty">
+        <div className="text-center mb-16 relative">
+          <div className="inline-block">
+            <h2 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-800 bg-clip-text text-transparent mb-8 text-balance animate-fade-in-up">
+              Galeri RT 14
+            </h2>
+            <div className="w-24 h-1 bg-gradient-to-r from-emerald-500 to-teal-500 mx-auto rounded-full mb-8"></div>
+          </div>
+          <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto text-pretty leading-relaxed animate-fade-in-up animation-delay-200">
             Dokumentasi kegiatan dan informasi terkini dari RT 14
           </p>
         </div>
 
         {/* Category Filter */}
-        <div className="flex flex-wrap justify-center gap-4 mb-12">
-          {categories.map((category) => (
+        <div className="flex flex-wrap justify-center gap-6 mb-16">
+          {categories.map((category, index) => (
             <Button
               key={category.id}
               variant={activeCategory === category.id ? "default" : "outline"}
@@ -112,13 +124,15 @@ export function Gallery() {
                 setVisibleCount(6)
                 setShowAll(false) // ✅ Reset showAll saat ganti kategori
               }}
-              className={`flex items-center space-x-2 ${activeCategory === category.id
-                ? "bg-primary hover:bg-primary/90 text-background"
-                : "border-border text-foreground hover:bg-primary/10 bg-background dark:text-white dark:border-white"
-                }`}
+              className={`flex items-center space-x-3 px-6 py-3 rounded-full transition-all duration-500 transform hover:scale-110 hover:shadow-2xl hover:shadow-emerald-500/30 group ${
+                activeCategory === category.id
+                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/50"
+                  : "border-2 border-emerald-200 dark:border-gray-600 text-foreground dark:text-white hover:bg-gradient-to-r hover:from-emerald-50 hover:to-teal-50 dark:hover:from-gray-700 dark:hover:to-gray-600 bg-white dark:bg-gray-800 hover:border-emerald-400 dark:hover:border-gray-400"
+              }`}
+              style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <category.icon className="h-4 w-4" />
-              <span>{category.label}</span>
+              <category.icon className={`h-5 w-5 transition-transform duration-300 group-hover:rotate-12 ${activeCategory === category.id ? "text-white" : "text-emerald-600 dark:text-emerald-400"}`} />
+              <span className="font-semibold">{category.label}</span>
             </Button>
           ))}
         </div>
@@ -164,10 +178,11 @@ export function Gallery() {
         <div className="mb-8">
           {/* Mobile horizontal scroll */}
           <div className="flex gap-4 overflow-x-auto md:hidden pb-4 scrollbar-thin scrollbar-thumb-emerald-400 scrollbar-track-transparent">
-            {visibleItems.map((item) => (
+            {visibleItems.map((item, index) => (
               <Card
                 key={item.id}
-                className="min-w-[250px] flex-shrink-0 relative group overflow-hidden"
+                className="min-w-[260px] flex-shrink-0 relative group overflow-hidden rounded-xl shadow-md hover:shadow-lg hover:shadow-emerald-500/15 transition-all duration-400 hover:-translate-y-1 animate-fade-in"
+                style={{ animationDelay: `${index * 0.08}s` }}
               >
                 <div
                   className="relative"
@@ -180,19 +195,87 @@ export function Gallery() {
                   <img
                     src={item.image || "/placeholder.svg"}
                     alt={item.title}
-                    className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="w-full h-48 object-cover transition-all duration-600 group-hover:scale-105 group-hover:brightness-105 group-hover:saturate-110"
                   />
 
                   {overlayVisibleId === item.id && (
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center gap-2 transition-opacity duration-300">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent flex items-end justify-center pb-3 transition-all duration-400">
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-white/95 text-black px-3 py-1.5 rounded-lg hover:bg-white transition-all duration-200 hover:scale-102"
+                          onClick={() => {
+                            setCurrentPhoto({
+                              image: item.image,
+                              title: item.title,
+                            })
+                            setLightboxOpen(true)
+                          }}
+                        >
+                          Show
+                        </Button>
+                        <a
+                          href={item.image || "/placeholder.svg"}
+                          download={item.title}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/95 text-black rounded-lg hover:bg-white transition-all duration-200 hover:scale-102"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="absolute top-3 left-3">
+                    <Badge
+                      variant={item.category === "kegiatan" ? "default" : "secondary"}
+                      className={`px-2 py-0.5 rounded-md font-medium text-xs ${
+                        item.category === "kegiatan"
+                          ? "bg-emerald-500 text-white"
+                          : "bg-teal-500 text-white"
+                      }`}
+                    >
+                      {item.category === "kegiatan" ? "Kegiatan" : "Katar"}
+                    </Badge>
+                  </div>
+                </div>
+                <CardContent className="p-4">
+                  <h3 className="text-base font-semibold text-foreground dark:text-white mb-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground dark:text-gray-300 mb-1 leading-relaxed">
+                    {item.description}
+                  </p>
+                  <span className="text-xs text-muted-foreground font-medium">{item.date}</span>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop grid */}
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-10 perspective-1000">
+            {visibleItems.map((item, index) => (
+              <Card
+                key={item.id}
+                className="group overflow-hidden rounded-3xl shadow-xl hover:shadow-2xl hover:shadow-emerald-500/30 transition-all duration-700 hover:-translate-y-4 hover:scale-[1.05] hover:rotate-0 bg-gradient-to-br from-white to-emerald-50/30 dark:from-gray-800 dark:to-gray-700/30 border-0"
+                style={{ animationDelay: `${index * 0.15}s` }}
+              >
+                <div className="relative overflow-hidden group rounded-t-3xl">
+                  <img
+                    src={item.image || "/placeholder.svg"}
+                    alt={item.title}
+                    className="w-full h-64 object-cover group-hover:scale-110 group-hover:brightness-110 transition-all duration-1000 cursor-pointer filter group-hover:contrast-110"
+                    onClick={() => {
+                      setCurrentPhoto({ image: item.image, title: item.title })
+                      setLightboxOpen(true)
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-end justify-center pb-6">
+                    <div className="flex gap-4 transform translate-z-0 translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
                       <Button
                         size="sm"
-                        className="bg-white text-black px-3 py-1"
+                        className="bg-white/95 backdrop-blur-md text-black px-5 py-2 rounded-full hover:bg-white hover:scale-110 transition-all duration-300 shadow-lg"
                         onClick={() => {
-                          setCurrentPhoto({
-                            image: item.image,
-                            title: item.title,
-                          })
+                          setCurrentPhoto({ image: item.image, title: item.title })
                           setLightboxOpen(true)
                         }}
                       >
@@ -201,94 +284,36 @@ export function Gallery() {
                       <a
                         href={item.image || "/placeholder.svg"}
                         download={item.title}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-white text-black rounded hover:bg-gray-200"
+                        className="inline-flex items-center gap-2 px-5 py-2 bg-white/95 backdrop-blur-md text-black rounded-full hover:bg-white hover:scale-110 transition-all duration-300 shadow-lg"
                       >
                         <Download className="w-4 h-4" /> Download
                       </a>
                     </div>
-                  )}
-
-                  <div className="absolute top-4 left-4">
+                  </div>
+                  <div className="absolute top-6 left-6">
                     <Badge
                       variant={item.category === "kegiatan" ? "default" : "secondary"}
-                      className={
+                      className={`px-4 py-2 rounded-full font-bold shadow-xl backdrop-blur-sm ${
                         item.category === "kegiatan"
-                          ? "bg-primary text-background"
-                          : "bg-teal-600 text-background"
-                      }
+                          ? "bg-emerald-500/90 text-white"
+                          : "bg-teal-500/90 text-white"
+                      }`}
                     >
                       {item.category === "kegiatan" ? "Kegiatan" : "Katar"}
                     </Badge>
                   </div>
-                </div>
-                <CardContent className="p-4">
-                  <h3 className="text-lg font-semibold text-foreground dark:text-white mb-2">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground dark:text-gray-300">
-                    {item.description}
-                  </p>
-                  <span className="text-xs text-muted-foreground">{item.date}</span>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Desktop grid */}
-          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {visibleItems.map((item) => (
-              <Card
-                key={item.id}
-                className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
-              >
-                <div className="relative overflow-hidden group">
-                  <img
-                    src={item.image || "/placeholder.svg"}
-                    alt={item.title}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
-                    onClick={() => {
-                      setCurrentPhoto({ image: item.image, title: item.title })
-                      setLightboxOpen(true)
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-70 transition-opacity duration-300 flex items-center justify-center gap-2">
-                    <Button
-                      size="sm"
-                      className="bg-white text-black px-3 py-1"
-                      onClick={() => {
-                        setCurrentPhoto({ image: item.image, title: item.title })
-                        setLightboxOpen(true)
-                      }}
-                    >
-                      Show
-                    </Button>
-                    <a
-                      href={item.image || "/placeholder.svg"}
-                      download={item.title}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-white text-black rounded hover:bg-gray-200"
-                    >
-                      <Download className="w-4 h-4" /> Download
-                    </a>
-                  </div>
-                  <div className="absolute top-4 left-4">
-                    <Badge
-                      variant={item.category === "kegiatan" ? "default" : "secondary"}
-                      className={
-                        item.category === "kegiatan"
-                          ? "bg-primary text-background"
-                          : "bg-teal-600 text-background"
-                      }
-                    >
-                      {item.category === "kegiatan" ? "Kegiatan" : "Katar"}
-                    </Badge>
+                  <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                    <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">+</span>
+                    </div>
                   </div>
                 </div>
-                <CardContent className="p-6">
-                  <h3 className="text-xl font-semibold text-foreground dark:text-white mb-3 text-balance group-hover:text-primary transition-colors">
+                <CardContent className="p-8">
+                  <h3 className="text-xl font-bold text-foreground dark:text-white mb-4 text-balance group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300 leading-tight">
                     {item.title}
                   </h3>
-                  <p className="text-muted-foreground dark:text-gray-300 text-pretty">{item.description}</p>
-                  <span className="text-sm text-muted-foreground">{item.date}</span>
+                  <p className="text-muted-foreground dark:text-gray-300 text-pretty mb-4 leading-relaxed">{item.description}</p>
+                  <span className="text-sm text-muted-foreground font-semibold bg-emerald-100 dark:bg-gray-700 px-3 py-1 rounded-full">{item.date}</span>
                 </CardContent>
               </Card>
             ))}

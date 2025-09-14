@@ -28,6 +28,9 @@ import {
 } from "lucide-react"
 import { PhotoUploadModal } from "@/components/photo-upload-modal"
 import { VideoUploadModal } from "@/components/video-upload-modal"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Menu, X } from "lucide-react"
 
 interface Comment {
   id: string
@@ -50,15 +53,38 @@ interface Visit {
   page: string
   timestamp: string
   user_agent: string
+  session_id: string
 }
 
 interface Activity {
   id: string
-  type: 'comment' | 'message' | 'visit' | 'photo'
+  type: 'comment' | 'message' | 'visit' | 'photo' | 'video'
   timestamp: string
   description: string
 }
 
+interface Photo {
+  id: string
+  title: string
+  category: "kabar" | "kegiatan"
+  image: string
+  date: string
+  description: string
+}
+
+interface Video {
+  id: string
+  title: string
+  category: "kabar" | "kegiatan"
+  video_data: string
+  duration: number
+  date: string
+  description: string
+}
+
+
+
+// ----- AdminDashboard -----
 export function AdminDashboard() {
   const router = useRouter()
   const { logout, isLoggedIn } = useAdminAuth()
@@ -70,103 +96,88 @@ export function AdminDashboard() {
   const [darkMode, setDarkMode] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(false)
-  const [editingPhoto, setEditingPhoto] = useState<any>(null)
-  const [editingVideo, setEditingVideo] = useState<any>(null)
+  const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null)
+  const [editingVideo, setEditingVideo] = useState<Video | null>(null)
+  const [isEditPhotoModalOpen, setIsEditPhotoModalOpen] = useState(false)
+  const [isEditVideoModalOpen, setIsEditVideoModalOpen] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
-  
-  // State untuk data pengunjung
   const [visits, setVisits] = useState<Visit[]>([])
   const [loadingVisits, setLoadingVisits] = useState(false)
 
-  // Proteksi halaman
   useEffect(() => {
     if (!isLoggedIn()) router.push("/admin/login")
   }, [router, isLoggedIn])
 
-  // Dark mode
   useEffect(() => {
     const html = document.documentElement
     if (darkMode) html.classList.add("dark")
     else html.classList.remove("dark")
   }, [darkMode])
 
-  // Komentar realtime
+  // --- Realtime supabase subscriptions ---
   useEffect(() => {
-    fetchComments()
-    const subscription = supabase
-      .channel("public:comments")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "comments" },
-        (payload) => setComments((prev) => [payload.new as Comment, ...prev])
-      )
-      .subscribe()
+    let sub: any
+    const fetchAndSubscribeComments = async () => {
+      await fetchComments()
+      sub = supabase.channel("public:comments").on("postgres_changes", { event: "INSERT", schema: "public", table: "comments" }, (payload) => {
+        setComments((prev) => [payload.new as Comment, ...prev])
+      }).subscribe()
+    }
+    fetchAndSubscribeComments()
     return () => {
-      supabase.removeChannel(subscription)
+      if (sub) supabase.removeChannel(sub)
     }
   }, [])
 
-  // Data pengunjung
   useEffect(() => {
-    fetchVisits()
-    const subscription = supabase
-      .channel("public:visits")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "visits" },
-        (payload) => setVisits((prev) => [payload.new as Visit, ...prev])
-      )
-      .subscribe()
+    let sub: any
+    const fetchAndSubscribeVisits = async () => {
+      await fetchVisits()
+      sub = supabase.channel("public:visits").on("postgres_changes", { event: "INSERT", schema: "public", table: "visits" }, (payload) => {
+        setVisits((prev) => [payload.new as Visit, ...prev])
+      }).subscribe()
+    }
+    fetchAndSubscribeVisits()
     return () => {
-      supabase.removeChannel(subscription)
+      if (sub) supabase.removeChannel(sub)
     }
   }, [])
 
-  const fetchVisits = async () => {
-    setLoadingVisits(true)
-    const { data, error } = await supabase
-      .from("visits")
-      .select("*")
-      .order("timestamp", { ascending: false })
-    if (!error && data) setVisits(data as Visit[])
-    setLoadingVisits(false)
-  }
+  useEffect(() => {
+    let sub: any
+    const fetchAndSubscribeMessages = async () => {
+      await fetchMessages()
+      sub = supabase.channel("public:messages").on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
+        setMessages((prev) => [payload.new as Message, ...prev])
+      }).subscribe()
+    }
+    fetchAndSubscribeMessages()
+    return () => {
+      if (sub) supabase.removeChannel(sub)
+    }
+  }, [])
 
   const fetchComments = async () => {
     setLoadingComments(true)
-    const { data, error } = await supabase
-      .from("comments")
-      .select("*")
-      .order("created_at", { ascending: false })
+    const { data, error } = await supabase.from("comments").select("*").order("created_at", { ascending: false })
     if (!error && data) setComments(data as Comment[])
     setLoadingComments(false)
   }
 
-  // Pesan realtime
-  useEffect(() => {
-    fetchMessages()
-    const subscription = supabase
-      .channel("public:messages")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => setMessages((prev) => [payload.new as Message, ...prev])
-      )
-      .subscribe()
-    return () => {
-      supabase.removeChannel(subscription)
-    }
-  }, [])
-
   const fetchMessages = async () => {
     setLoadingMessages(true)
-    const { data, error } = await supabase
-      .from("messages")
-      .select("*")
-      .order("created_at", { ascending: false })
+    const { data, error } = await supabase.from("messages").select("*").order("created_at", { ascending: false })
     if (!error && data) setMessages(data as Message[])
     setLoadingMessages(false)
+  }
+
+  const fetchVisits = async () => {
+    setLoadingVisits(true)
+    const { data, error } = await supabase.from("visits").select("*").order("timestamp", { ascending: false })
+    if (!error && data) setVisits(data as Visit[])
+    setLoadingVisits(false)
   }
 
   const handleDeleteComment = async (id: string) => {
@@ -181,7 +192,7 @@ export function AdminDashboard() {
     if (!error) setMessages((prev) => prev.filter((m) => m.id !== id))
   }
 
-  // Upload foto → base64
+  // ----- Photo Upload -----
   const handlePhotoUpload = async (uploadData: any) => {
     const processedPhotos = await Promise.all(
       uploadData.files.map(
@@ -195,14 +206,11 @@ export function AdminDashboard() {
     )
     for (let i = 0; i < processedPhotos.length; i++) {
       const imageDataUrl = processedPhotos[i]
-      const photoTitle =
-        uploadData.files.length > 1
-          ? `${uploadData.title} (${i + 1})`
-          : uploadData.title
+      const photoTitle = uploadData.files.length > 1 ? `${uploadData.title} (${i + 1})` : uploadData.title
       await addPhoto({
         title: photoTitle,
         category: uploadData.category,
-        image: imageDataUrl, // base64 dikirim ke hook usePhotos
+        image: imageDataUrl,
         date: uploadData.date,
         description: uploadData.description,
       })
@@ -210,44 +218,17 @@ export function AdminDashboard() {
     setIsUploadModalOpen(false)
   }
 
+  // ----- Video Upload -----
   const handleVideoUpload = async (uploadData: any) => {
-    const processedVideos = await Promise.all(
-      uploadData.base64Videos.map(
-        (videoBase64: string, index: number) =>
-          new Promise<string>((resolve) => {
-            resolve(videoBase64)
-          })
-      )
-    )
-    for (let i = 0; i < processedVideos.length; i++) {
-      const videoDataUrl = processedVideos[i]
-      const videoTitle =
-        uploadData.files.length > 1
-          ? `${uploadData.title} (${i + 1})`
-          : uploadData.title
-      const duration = await new Promise<number>((resolve, reject) => {
-        const video = document.createElement("video")
-        video.preload = "metadata"
-        video.src = videoDataUrl
+    for (let i = 0; i < uploadData.base64Videos.length; i++) {
+      const videoDataUrl = uploadData.base64Videos[i]
+      const duration = uploadData.durations[i]
+      const videoTitle = uploadData.files.length > 1 ? `${uploadData.title} (${i + 1})` : uploadData.title
 
-        video.onloadedmetadata = () => {
-          resolve(video.duration)
-        }
-
-        video.onerror = (error) => {
-          console.error("Video metadata loading error:", error)
-          reject(new Error("Failed to load video metadata"))
-        }
-
-        // Timeout fallback
-        setTimeout(() => {
-          reject(new Error("Video metadata loading timeout"))
-        }, 10000) // 10 second timeout
-      })
       await addVideo({
         title: videoTitle,
         category: uploadData.category,
-        video: videoDataUrl, // This will be mapped to video_data in the hook
+        video: videoDataUrl,
         duration: Math.floor(duration),
         date: uploadData.date,
         description: uploadData.description,
@@ -256,33 +237,44 @@ export function AdminDashboard() {
     setIsVideoUploadModalOpen(false)
   }
 
-
-
   const handleDeletePhoto = (id: string) => {
     if (!confirm("Hapus foto ini?")) return
     deletePhoto(id)
   }
 
-  const handleEditPhoto = (photo: any) => setEditingPhoto(photo)
-
-  const handleSaveEdit = () => {
+  const handleEditPhoto = (photo: Photo) => {
+    setEditingPhoto(photo)
+    setIsEditPhotoModalOpen(true)
+  }
+  const handleSaveEditPhoto = () => {
     if (editingPhoto) {
-      editPhoto(editingPhoto.id, {
-        title: editingPhoto.title,
-        category: editingPhoto.category,
-        description: editingPhoto.description,
-      })
+      editPhoto(editingPhoto.id, { title: editingPhoto.title, category: editingPhoto.category, description: editingPhoto.description })
       setEditingPhoto(null)
+      setIsEditPhotoModalOpen(false)
     }
   }
 
-  // Ambil URL publik jika image = path storage
+  const handleSaveEditVideo = () => {
+    if (editingVideo) {
+      editVideo(editingVideo.id, { title: editingVideo.title, category: editingVideo.category, description: editingVideo.description })
+      setEditingVideo(null)
+      setIsEditVideoModalOpen(false)
+    }
+  }
+
   const getPhotoUrl = (photo: any) => {
     if (!photo.image) return null
     if (photo.image.startsWith("data:image")) return photo.image
     return supabase.storage.from("photos").getPublicUrl(photo.image).data.publicUrl
   }
 
+  const getVideoUrl = (video: any) => {
+    if (!video.video_data) return null
+    if (video.video_data.startsWith("data:video")) return video.video_data
+    return supabase.storage.from("videos").getPublicUrl(video.video_data).data.publicUrl
+  }
+
+  // --- Tabs ---
   const tabs = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "photos", label: "Kelola Foto", icon: ImageIcon },
@@ -294,513 +286,291 @@ export function AdminDashboard() {
     { id: "settings", label: "Pengaturan", icon: Settings },
   ]
 
-  // Hitung statistik pengunjung
   const totalVisits = visits.length
-  const uniqueVisitors = new Set(visits.map(v => 
-    new Date(v.timestamp).toLocaleDateString('id-ID')
-  )).size
-
-  const todayVisits = visits.filter(v => 
-    new Date(v.timestamp).toLocaleDateString('id-ID') === new Date().toLocaleDateString('id-ID')
-  ).length
+  const uniqueVisitors = new Set(visits.map(v => v.session_id)).size
+  const todayUTC = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()))
+  const todayVisits = visits.filter(v => {
+    const visitDate = new Date(v.timestamp)
+    const visitUTC = new Date(Date.UTC(visitDate.getUTCFullYear(), visitDate.getUTCMonth(), visitDate.getUTCDate()))
+    return visitUTC.getTime() === todayUTC.getTime()
+  }).length
 
   const stats = {
     totalPhotos: photos.length,
     totalComments: comments.length,
     totalVisitors: uniqueVisitors,
-    totalVisits: totalVisits,
-    todayVisits: todayVisits,
+    totalVisits,
+    todayVisits,
     totalMessages: messages.length,
   }
 
   const activities = useMemo(() => {
     const acts: Activity[] = []
-    comments.slice(0, 10).forEach(c => acts.push({
-      id: c.id,
-      type: 'comment',
-      timestamp: c.created_at,
-      description: `Komentar baru dari ${c.name}: ${c.message.substring(0, 50)}...`
-    }))
-    messages.slice(0, 10).forEach(m => acts.push({
-      id: m.id.toString(),
-      type: 'message',
-      timestamp: m.created_at,
-      description: `Pesan baru dari ${m.name}: ${m.subject}`
-    }))
-    visits.slice(0, 10).forEach(v => acts.push({
-      id: v.id,
-      type: 'visit',
-      timestamp: v.timestamp,
-      description: `Kunjungan ke ${v.page}`
-    }))
-    photos.slice(0, 10).forEach(p => acts.push({
-      id: p.id,
-      type: 'photo',
-      timestamp: p.date || new Date().toISOString(),
-      description: `Foto '${p.title}' diupload`
-    }))
-    return acts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-  }, [comments, messages, visits, photos])
+    comments.slice(0,10).forEach(c => acts.push({ id: c.id, type: 'comment', timestamp: c.created_at, description: `💬 New comment by ${c.name}: "${c.message.slice(0, 50)}${c.message.length > 50 ? '...' : ''}"` }))
+    messages.slice(0,10).forEach(m => acts.push({ id: m.id.toString(), type: 'message', timestamp: m.created_at, description: `📧 New message from ${m.name}: "${m.subject}"` }))
+    visits.slice(0,10).forEach(v => acts.push({ id: v.id, type: 'visit', timestamp: v.timestamp, description: `👁️ Page visit: ${v.page}` }))
+    photos.slice(0,10).forEach(p => acts.push({ id: p.id, type: 'photo', timestamp: p.created_at, description: `📸 Uploaded photo: "${p.title}"` }))
+    videos.slice(0,10).forEach(v => acts.push({ id: v.id, type: 'video', timestamp: v.created_at, description: `🎥 Uploaded video: "${v.title}"` }))
+    return acts.sort((a,b)=> new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  }, [comments, messages, visits, photos, videos])
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-0">
-              Admin Dashboard RT 14
-            </h1>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 w-full sm:w-auto">
-              <Button
-                variant="outline"
-                onClick={() => setDarkMode(!darkMode)}
-                className="flex items-center justify-center space-x-2 dark:text-white dark:border-gray-400 w-full sm:w-auto"
-              >
-                {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => window.open("/", "_blank")}
-                className="flex items-center justify-center space-x-2 dark:text-white dark:border-gray-400 w-full sm:w-auto"
-              >
-                <Eye className="h-4 w-4" />
-                <span>Lihat Website</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={logout}
-                className="flex items-center justify-center space-x-2 dark:text-white dark:border-gray-400 w-full sm:w-auto"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Keluar</span>
-              </Button>
-            </div>
-          </div>
+    <div className="p-4 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-2">
+          <Button onClick={() => setIsSidebarOpen(true)} size="sm" variant="outline" className="sm:hidden">
+            <Menu className="h-4 w-4" />
+          </Button>
+          <h1 className="text-xl sm:text-2xl font-bold">Admin Dashboard</h1>
         </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col lg:flex-row gap-8">
-        {/* Sidebar */}
-        <div className="lg:w-64 space-y-2">
-          {tabs.map((tab) => (
-            <Button
-              key={tab.id}
-              variant={activeTab === tab.id ? "default" : "ghost"}
-              className={`w-full justify-start ${
-                activeTab === tab.id
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-              }`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <tab.icon className="h-4 w-4 mr-3" />
-              {tab.label}
-            </Button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 space-y-6">
-          {/* Overview */}
-          {activeTab === "overview" && (
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Overview</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                  <CardContent className="p-6 flex items-center">
-                    <ImageIcon className="h-8 w-8 text-emerald-600" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Foto</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalPhotos}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                  <CardContent className="p-6 flex items-center">
-                    <MessageSquare className="h-8 w-8 text-purple-600" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Komentar</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalComments}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                  <CardContent className="p-6 flex items-center">
-                    <Users className="h-8 w-8 text-blue-600" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Pengunjung Unik</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalVisitors}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{stats.totalVisits} total kunjungan</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                  <CardContent className="p-6 flex items-center">
-                    <Calendar className="h-8 w-8 text-orange-600" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Kunjungan Hari Ini</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.todayVisits}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Data Kunjungan Terbaru */}
-              <div className="mt-8">
-                <h3 className="text-xl font-semibold mb-4">Data Kunjungan Terbaru</h3>
-                {loadingVisits ? (
-                  <p className="text-gray-600 dark:text-gray-300">Memuat data kunjungan...</p>
-                ) : visits.length === 0 ? (
-                  <p className="text-gray-600 dark:text-gray-300">Belum ada data kunjungan.</p>
-                ) : (
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead className="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Halaman</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Waktu</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Perangkat</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        {visits.slice(0, 5).map((visit) => (
-                          <tr key={visit.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{visit.page}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                              {new Date(visit.timestamp).toLocaleString('id-ID')}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                              {visit.user_agent?.substring(0, 50)}...
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Kelola Foto */}
-          {activeTab === "photos" && (
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Kelola Foto</h2>
-              <Button
-                onClick={() => setIsUploadModalOpen(true)}
-                className="mb-4 bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                <Upload className="h-4 w-4 mr-2" /> Tambah Foto
-              </Button>
-              <Button
-                onClick={() => setIsVideoUploadModalOpen(true)}
-                className="mb-4 ml-4 bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                <Upload className="h-4 w-4 mr-2" /> Tambah Video
-              </Button>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {photos.map((photo) => (
-                  <Card key={photo.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700">
-                    <CardHeader>
-                      <CardTitle className="text-lg">{photo.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-2">
-                      {getPhotoUrl(photo) ? (
-                        <img
-                          src={getPhotoUrl(photo)}
-                          alt={photo.title || "Foto"}
-                          className="w-full h-48 object-cover rounded-lg mb-2"
-                        />
-                      ) : (
-                        <div className="w-full h-48 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-500">
-                          Tidak ada gambar
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center">
-                        <Button variant="destructive" size="sm" onClick={() => handleDeletePhoto(photo.id)}>
-                          <Trash2 className="h-4 w-4 mr-1" /> Hapus
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleEditPhoto(photo)}>
-                          <Edit className="h-4 w-4 mr-1" /> Edit
-                        </Button>
-                      </div>
-                      {editingPhoto?.id === photo.id && (
-                        <div className="mt-2 space-y-2">
-                          <Input
-                            value={editingPhoto.title}
-                            onChange={(e) => setEditingPhoto({ ...editingPhoto, title: e.target.value })}
-                            placeholder="Judul"
-                          />
-                          <Input
-                            value={editingPhoto.category}
-                            onChange={(e) => setEditingPhoto({ ...editingPhoto, category: e.target.value })}
-                            placeholder="Kategori"
-                          />
-                          <Input
-                            value={editingPhoto.description}
-                            onChange={(e) => setEditingPhoto({ ...editingPhoto, description: e.target.value })}
-                            placeholder="Deskripsi"
-                          />
-                          <div className="flex space-x-2">
-                            <Button onClick={handleSaveEdit} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                              Simpan
-                            </Button>
-                            <Button onClick={() => setEditingPhoto(null)} variant="outline">
-                              Batal
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Komentar */}
-          {activeTab === "comments" && (
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Komentar Warga</h2>
-              {loadingComments ? (
-                <p>Memuat komentar...</p>
-              ) : (
-                <div className="space-y-4">
-                  {comments.map((comment) => (
-                    <Card key={comment.id}>
-                      <CardContent>
-                        <div className="flex justify-between">
-                          <h4 className="font-semibold">{comment.name}</h4>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm text-muted-foreground">
-                              {new Date(comment.created_at).toLocaleString("id-ID")}
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDeleteComment(comment.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <p className="text-gray-700 dark:text-gray-300">{comment.message}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Pesan Cepat */}
-          {activeTab === "messages" && (
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Pesan Cepat</h2>
-              {loadingMessages ? (
-                <p>Memuat pesan...</p>
-              ) : (
-                <div className="space-y-4">
-                  {messages.map((msg) => (
-                    <Card key={msg.id}>
-                      <CardContent className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-semibold">{msg.name} ({msg.phone})</h4>
-                          <p className="text-sm text-muted-foreground mb-1">Subjek: {msg.subject}</p>
-                          <p className="text-gray-700 dark:text-gray-300">{msg.message}</p>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(msg.created_at).toLocaleString("id-ID")}
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteMessage(msg.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Data Pengunjung Detail */}
-          {activeTab === "visitors" && (
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Data Pengunjung</h2>
-              {loadingVisits ? (
-                <p className="text-gray-600 dark:text-gray-300">Memuat data pengunjung...</p>
-              ) : visits.length === 0 ? (
-                <p className="text-gray-600 dark:text-gray-300">Belum ada data pengunjung.</p>
-              ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Halaman</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Waktu</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Perangkat</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {visits.map((visit) => (
-                        <tr key={visit.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{visit.page}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            {new Date(visit.timestamp).toLocaleString('id-ID')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            {visit.user_agent}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Aktivitas */}
-          {activeTab === "activities" && (
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Aktivitas Terbaru</h2>
-              <div className="space-y-4">
-                {activities.map((activity) => (
-                  <Card key={activity.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <p className="text-gray-900 dark:text-white">{activity.description}</p>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(activity.timestamp).toLocaleString('id-ID')}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Kelola Video */}
-          {activeTab === "videos" && (
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Kelola Video</h2>
-              <Button
-                onClick={() => setIsVideoUploadModalOpen(true)}
-                className="mb-4 bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                <Upload className="h-4 w-4 mr-2" /> Tambah Video
-              </Button>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {videos.map((video) => (
-                  <Card key={video.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700">
-                    <CardHeader>
-                      <CardTitle className="text-lg">{video.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-2">
-                      {video.video_data ? (
-                        <video
-                          src={video.video_data}
-                          controls
-                          className="w-full h-48 object-cover rounded-lg mb-2"
-                        />
-                      ) : (
-                        <div className="w-full h-48 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-500">
-                          Tidak ada video
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center">
-                        <Button variant="destructive" size="sm" onClick={() => deleteVideo(video.id)}>
-                          <Trash2 className="h-4 w-4 mr-1" /> Hapus
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => setEditingVideo(video)}>
-                          <Edit className="h-4 w-4 mr-1" /> Edit
-                        </Button>
-                      </div>
-                      {editingVideo?.id === video.id && (
-                        <div className="mt-2 space-y-2">
-                          <Input
-                            value={editingVideo.title}
-                            onChange={(e) => setEditingVideo({ ...editingVideo, title: e.target.value })}
-                            placeholder="Judul"
-                          />
-                          <Input
-                            value={editingVideo.category}
-                            onChange={(e) => setEditingVideo({ ...editingVideo, category: e.target.value })}
-                            placeholder="Kategori"
-                          />
-                          <Input
-                            value={editingVideo.description}
-                            onChange={(e) => setEditingVideo({ ...editingVideo, description: e.target.value })}
-                            placeholder="Deskripsi"
-                          />
-                          <div className="flex space-x-2">
-                            <Button onClick={() => {
-                              if (editingVideo) {
-                                editVideo(editingVideo.id, {
-                                  title: editingVideo.title,
-                                  category: editingVideo.category,
-                                  description: editingVideo.description,
-                                })
-                                setEditingVideo(null)
-                              }
-                            }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                              Simpan
-                            </Button>
-                            <Button onClick={() => setEditingVideo(null)} variant="outline">
-                              Batal
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Pengaturan */}
-          {activeTab === "settings" && (
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Pengaturan</h2>
-              <div>
-                <p className="text-gray-700 dark:text-gray-300">Fitur pengaturan akan datang...</p>
-                {/* Example setting: Dark mode toggle */}
-                <Button
-                  variant="outline"
-                  onClick={() => setDarkMode(!darkMode)}
-                  className="mt-4"
-                >
-                  {darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                </Button>
-              </div>
-            </div>
-          )}
+        <div className="flex items-center space-x-2">
+          <Button onClick={() => setDarkMode(!darkMode)} size="sm">{darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</Button>
+          <Button onClick={logout} size="sm"><LogOut className="h-4 w-4 mr-2" /> Logout</Button>
         </div>
       </div>
 
-      {/* Modal Upload Foto */}
-      <PhotoUploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        onUpload={handlePhotoUpload}
-      />
+      <div className="hidden sm:flex flex-wrap gap-2 mb-6">
+        {tabs.map(tab => (
+          <Button key={tab.id} onClick={() => setActiveTab(tab.id)} variant={activeTab===tab.id ? "default" : "outline"} size="sm" className="flex-1 sm:flex-none">
+            <tab.icon className="mr-2 h-4 w-4" /> {tab.label}
+          </Button>
+        ))}
+      </div>
 
-      {/* Modal Upload Video */}
-      <VideoUploadModal
-        isOpen={isVideoUploadModalOpen}
-        onClose={() => setIsVideoUploadModalOpen(false)}
-        onUpload={handleVideoUpload}
-      />
+      {/* Mobile Sidebar */}
+      {isSidebarOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
+          <div className={`fixed left-0 top-0 h-full w-64 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-lg z-50 transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">Menu</h2>
+              <Button onClick={() => setIsSidebarOpen(false)} size="sm" variant="ghost">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-4 space-y-2">
+              {tabs.map(tab => (
+                <Button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); setIsSidebarOpen(false); }}
+                  variant={activeTab === tab.id ? "default" : "ghost"}
+                  className="w-full justify-start"
+                >
+                  <tab.icon className="mr-2 h-4 w-4" /> {tab.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="mt-4">
+        {activeTab === "overview" && (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <Card className="text-center"><CardHeader className="pb-2"><CardTitle className="text-sm">Total Photos</CardTitle></CardHeader><CardContent className="pt-0"><div className="text-2xl font-bold">{stats.totalPhotos}</div></CardContent></Card>
+            <Card className="text-center"><CardHeader className="pb-2"><CardTitle className="text-sm">Total Comments</CardTitle></CardHeader><CardContent className="pt-0"><div className="text-2xl font-bold">{stats.totalComments}</div></CardContent></Card>
+            <Card className="text-center"><CardHeader className="pb-2"><CardTitle className="text-sm">Unique Visitors</CardTitle></CardHeader><CardContent className="pt-0"><div className="text-2xl font-bold">{stats.totalVisitors}</div></CardContent></Card>
+            <Card className="text-center"><CardHeader className="pb-2"><CardTitle className="text-sm">Total Visits</CardTitle></CardHeader><CardContent className="pt-0"><div className="text-2xl font-bold">{stats.totalVisits}</div></CardContent></Card>
+            <Card className="text-center"><CardHeader className="pb-2"><CardTitle className="text-sm">Today's Visits</CardTitle></CardHeader><CardContent className="pt-0"><div className="text-2xl font-bold">{stats.todayVisits}</div></CardContent></Card>
+            <Card className="text-center"><CardHeader className="pb-2"><CardTitle className="text-sm">Total Messages</CardTitle></CardHeader><CardContent className="pt-0"><div className="text-2xl font-bold">{stats.totalMessages}</div></CardContent></Card>
+          </div>
+        )}
+
+        {activeTab === "photos" && (
+          <div>
+            <Button onClick={() => setIsUploadModalOpen(true)} className="mb-4 w-full sm:w-auto"><Upload className="h-4 w-4 mr-2" /> Upload Foto</Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {photos.map(photo => (
+                <Card key={photo.id} className="overflow-hidden">
+                  <CardHeader className="pb-2"><CardTitle className="text-sm truncate">{photo.title}</CardTitle></CardHeader>
+                  <CardContent className="p-4">
+                    <img src={getPhotoUrl(photo) || ""} alt={photo.title} className="w-full h-32 sm:h-48 object-cover rounded mb-2"/>
+                    <div className="flex space-x-2">
+                      <Button onClick={()=>handleEditPhoto(photo)} size="sm" className="flex-1"><Edit className="h-4 w-4 mr-1" /> Edit</Button>
+                      <Button onClick={()=>handleDeletePhoto(photo.id)} variant="destructive" size="sm" className="flex-1"><Trash2 className="h-4 w-4 mr-1" /> Hapus</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "videos" && (
+          <div>
+            <Button onClick={() => setIsVideoUploadModalOpen(true)} className="mb-4 w-full sm:w-auto"><Upload className="h-4 w-4 mr-2" /> Upload Video</Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {videos.map(video => (
+                <Card key={video.id} className="overflow-hidden">
+                  <CardHeader className="pb-2"><CardTitle className="text-sm truncate">{video.title}</CardTitle></CardHeader>
+                  <CardContent className="p-4">
+                    <video src={getVideoUrl(video) || ""} controls className="w-full h-32 sm:h-48 object-cover rounded mb-2"/>
+                    <p className="text-xs text-gray-600 mb-2">Duration: {video.duration}s</p>
+                    <div className="flex space-x-2">
+                      <Button onClick={() => { setEditingVideo(video); setIsEditVideoModalOpen(true); }} size="sm" className="flex-1"><Edit className="h-4 w-4 mr-1" /> Edit</Button>
+                      <Button onClick={() => deleteVideo(video.id)} variant="destructive" size="sm" className="flex-1"><Trash2 className="h-4 w-4 mr-1" /> Hapus</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "videos" && (
+          <div>
+            <Button onClick={() => setIsVideoUploadModalOpen(true)} className="mb-4"><Upload /> Upload Video</Button>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {videos.map(video => (
+                <Card key={video.id}>
+                  <CardHeader><CardTitle>{video.title}</CardTitle></CardHeader>
+                  <CardContent>
+                    <video src={getVideoUrl(video) || ""} controls className="w-full h-48 object-cover mb-2"/>
+                    <p>Duration: {video.duration}s</p>
+                    <Button onClick={()=>setEditingVideo(video)} className="mr-2"><Edit /></Button>
+                    <Button onClick={()=>deleteVideo(video.id)} variant="destructive"><Trash2 /></Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "comments" && (
+          <div className="space-y-4">
+            {loadingComments ? <p className="text-center">Loading...</p> : comments.map(c => (
+              <Card key={c.id}>
+                <CardHeader><CardTitle className="text-lg">{c.name}</CardTitle></CardHeader>
+                <CardContent>
+                  <p className="mb-2">{c.message}</p>
+                  <p className="text-sm text-gray-500 mb-2">{new Date(c.created_at).toLocaleString()}</p>
+                  <Button onClick={()=>handleDeleteComment(c.id)} variant="destructive" className="w-full sm:w-auto"><Trash2 className="h-4 w-4 mr-2" /> Hapus</Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "messages" && (
+          <div className="space-y-4">
+            {loadingMessages ? <p className="text-center">Loading...</p> : messages.map(m => (
+              <Card key={m.id}>
+                <CardHeader><CardTitle className="text-lg">{m.name}</CardTitle></CardHeader>
+                <CardContent>
+                  <p className="mb-2">{m.message}</p>
+                  <p className="text-sm text-gray-500 mb-2">{new Date(m.created_at).toLocaleString()}</p>
+                  <Button onClick={()=>handleDeleteMessage(m.id)} variant="destructive" className="w-full sm:w-auto"><Trash2 className="h-4 w-4 mr-2" /> Hapus</Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "visitors" && (
+          <div className="space-y-4">
+            {loadingVisits ? <p className="text-center">Loading...</p> : visits.map(v => (
+              <Card key={v.id}>
+                <CardContent className="space-y-1">
+                  <p className="font-medium">Page: {v.page}</p>
+                  <p className="text-sm text-gray-600">UA: {v.user_agent}</p>
+                  <p className="text-sm text-gray-600">Time: {new Date(v.timestamp).toLocaleString()}</p>
+                  <p className="text-sm text-gray-600">Session: {v.session_id}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "activities" && (
+          <div className="space-y-4">
+            {activities.map(a => (
+              <Card key={a.id}>
+                <CardContent>
+                  <p className="mb-1">{a.description}</p>
+                  <p className="text-sm text-gray-500">{new Date(a.timestamp).toLocaleString()}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "settings" && (
+          <div className="max-w-md">
+            <Button onClick={logout} variant="destructive" className="w-full sm:w-auto"><LogOut className="h-4 w-4 mr-2" /> Logout</Button>
+          </div>
+        )}
+      </div>
+
+      {isEditPhotoModalOpen && editingPhoto && (
+        <Dialog open={isEditPhotoModalOpen} onOpenChange={setIsEditPhotoModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Foto</DialogTitle>
+            </DialogHeader>
+            <Input
+              type="text"
+              value={editingPhoto.title}
+              onChange={(e) => setEditingPhoto({ ...editingPhoto, title: e.target.value })}
+              placeholder="Judul"
+              className="mb-2"
+            />
+            <Input
+              type="text"
+              value={editingPhoto.category}
+              onChange={(e) => setEditingPhoto({ ...editingPhoto, category: e.target.value as "kabar" | "kegiatan" })}
+              placeholder="Kategori"
+              className="mb-2"
+            />
+            <Textarea
+              value={editingPhoto.description}
+              onChange={(e) => setEditingPhoto({ ...editingPhoto, description: e.target.value })}
+              placeholder="Deskripsi"
+              className="mb-2"
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditPhotoModalOpen(false)}>Batal</Button>
+              <Button onClick={handleSaveEditPhoto}>Simpan</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {isEditVideoModalOpen && editingVideo && (
+        <Dialog open={isEditVideoModalOpen} onOpenChange={setIsEditVideoModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Video</DialogTitle>
+            </DialogHeader>
+            <Input
+              type="text"
+              value={editingVideo.title}
+              onChange={(e) => setEditingVideo({ ...editingVideo, title: e.target.value })}
+              placeholder="Judul"
+              className="mb-2"
+            />
+            <Input
+              type="text"
+              value={editingVideo.category}
+              onChange={(e) => setEditingVideo({ ...editingVideo, category: e.target.value as "kabar" | "kegiatan" })}
+              placeholder="Kategori"
+              className="mb-2"
+            />
+            <Textarea
+              value={editingVideo.description}
+              onChange={(e) => setEditingVideo({ ...editingVideo, description: e.target.value })}
+              placeholder="Deskripsi"
+              className="mb-2"
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditVideoModalOpen(false)}>Batal</Button>
+              <Button onClick={handleSaveEditVideo}>Simpan</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {isUploadModalOpen && <PhotoUploadModal isOpen={isUploadModalOpen} onClose={()=>setIsUploadModalOpen(false)} onUpload={handlePhotoUpload} />}
+      {isVideoUploadModalOpen && <VideoUploadModal isOpen={isVideoUploadModalOpen} onClose={()=>setIsVideoUploadModalOpen(false)} onUpload={handleVideoUpload} />}
     </div>
   )
 }

@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Shield, Eye, EyeOff } from "lucide-react"
+import { motion } from "framer-motion"
+import { easeInOut } from "framer-motion"
 
 export function AdminLogin() {
   const { login } = useAdminAuth()
@@ -30,19 +32,54 @@ export function AdminLogin() {
     setIsLoading(false)
   }
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: { opacity: 1, scale: 1, transition: { duration: 0.6, ease: easeInOut } },
+  }
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.15, duration: 0.5, ease: easeInOut },
+    }),
+  }
+
+  const iconVariants = {
+    animate: {
+      scale: [1, 1.1, 1],
+      transition: { repeat: Infinity, duration: 2, ease: easeInOut },
+    },
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-gray-900 dark:to-gray-950 p-4">
-      <Card className="w-full max-w-md bg-background dark:bg-gray-800 border border-border dark:border-gray-700">
+      <motion.div
+        className="w-full max-w-md bg-background dark:bg-gray-800 border border-border dark:border-gray-700 rounded-lg shadow-lg"
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+      >
         <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-800 rounded-full flex items-center justify-center mx-auto mb-4">
+          <motion.div
+            className="w-16 h-16 bg-emerald-100 dark:bg-emerald-800 rounded-full flex items-center justify-center mx-auto mb-4"
+            variants={iconVariants}
+            animate="animate"
+          >
             <Shield className="h-8 w-8 text-emerald-600 dark:text-emerald-300" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-foreground dark:text-white">Admin RT 14</CardTitle>
-          <p className="text-muted-foreground dark:text-gray-300">Masuk untuk mengelola website</p>
+          </motion.div>
+          <motion.div custom={0} variants={itemVariants}>
+            <CardTitle className="text-2xl font-bold text-foreground dark:text-white">Admin RT 14</CardTitle>
+          </motion.div>
+          <motion.div custom={1} variants={itemVariants}>
+            <p className="text-muted-foreground dark:text-gray-300">Masuk untuk mengelola website</p>
+          </motion.div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+            <motion.div custom={2} variants={itemVariants}>
               <Label htmlFor="username" className="dark:text-gray-200">Username</Label>
               <Input
                 id="username"
@@ -53,9 +90,9 @@ export function AdminLogin() {
                 required
                 className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
               />
-            </div>
+            </motion.div>
 
-            <div>
+            <motion.div custom={3} variants={itemVariants}>
               <Label htmlFor="password" className="dark:text-gray-200">Password</Label>
               <div className="relative mt-1">
                 <Input
@@ -81,24 +118,28 @@ export function AdminLogin() {
                   )}
                 </Button>
               </div>
-            </div>
+            </motion.div>
 
             {error && (
-              <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/30 dark:text-red-400 p-3 rounded-md">
-                {error}
-              </div>
+              <motion.div custom={4} variants={itemVariants}>
+                <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/30 dark:text-red-400 p-3 rounded-md">
+                  {error}
+                </div>
+              </motion.div>
             )}
 
-            <Button
-              type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white"
-              disabled={isLoading}
-            >
-              {isLoading ? "Memproses..." : "Masuk"}
-            </Button>
+            <motion.div custom={5} variants={itemVariants}>
+              <Button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? "Memproses..." : "Masuk"}
+              </Button>
+            </motion.div>
           </form>
         </CardContent>
-      </Card>
+      </motion.div>
     </div>
   )
 }
