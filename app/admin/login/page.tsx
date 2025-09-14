@@ -96,6 +96,16 @@ export default function AdminLoginPage() {
               </div>
             </div>
 
+            <div className="text-right">
+              <Button
+                variant="link"
+                className="text-emerald-600 dark:text-emerald-400 hover:underline p-0 h-auto"
+                onClick={() => router.push("/admin/forgot-password")}
+              >
+                Lupa Password?
+              </Button>
+            </div>
+
             {error && (
               <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/30 dark:text-red-400 p-3 rounded-md">
                 {error}
