@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAdminAuth } from "@/hooks/use-admin-auth"
+import { useAdminAuth } from "@/lib/admin-auth-context"
 import { usePhotos } from "@/hooks/use-photos"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -88,7 +88,9 @@ export function AdminDashboard() {
         (payload) => setComments((prev) => [payload.new as Comment, ...prev])
       )
       .subscribe()
-    return () => supabase.removeChannel(subscription)
+    return () => {
+      supabase.removeChannel(subscription)
+    }
   }, [])
 
   // Data pengunjung
@@ -102,26 +104,28 @@ export function AdminDashboard() {
         (payload) => setVisits((prev) => [payload.new as Visit, ...prev])
       )
       .subscribe()
-    return () => supabase.removeChannel(subscription)
+    return () => {
+      supabase.removeChannel(subscription)
+    }
   }, [])
 
   const fetchVisits = async () => {
     setLoadingVisits(true)
     const { data, error } = await supabase
-      .from<Visit>("visits")
+      .from("visits")
       .select("*")
       .order("timestamp", { ascending: false })
-    if (!error && data) setVisits(data)
+    if (!error && data) setVisits(data as Visit[])
     setLoadingVisits(false)
   }
 
   const fetchComments = async () => {
     setLoadingComments(true)
     const { data, error } = await supabase
-      .from<Comment>("comments")
+      .from("comments")
       .select("*")
       .order("created_at", { ascending: false })
-    if (!error && data) setComments(data)
+    if (!error && data) setComments(data as Comment[])
     setLoadingComments(false)
   }
 
@@ -136,16 +140,18 @@ export function AdminDashboard() {
         (payload) => setMessages((prev) => [payload.new as Message, ...prev])
       )
       .subscribe()
-    return () => supabase.removeChannel(subscription)
+    return () => {
+      supabase.removeChannel(subscription)
+    }
   }, [])
 
   const fetchMessages = async () => {
     setLoadingMessages(true)
     const { data, error } = await supabase
-      .from<Message>("messages")
+      .from("messages")
       .select("*")
       .order("created_at", { ascending: false })
-    if (!error && data) setMessages(data)
+    if (!error && data) setMessages(data as Message[])
     setLoadingMessages(false)
   }
 
@@ -198,19 +204,21 @@ export function AdminDashboard() {
   const handleEditPhoto = (photo: any) => setEditingPhoto(photo)
 
   const handleSaveEdit = () => {
-    editPhoto(editingPhoto.id, {
-      title: editingPhoto.title,
-      category: editingPhoto.category,
-      description: editingPhoto.description,
-    })
-    setEditingPhoto(null)
+    if (editingPhoto) {
+      editPhoto(editingPhoto.id, {
+        title: editingPhoto.title,
+        category: editingPhoto.category,
+        description: editingPhoto.description,
+      })
+      setEditingPhoto(null)
+    }
   }
 
   // Ambil URL publik jika image = path storage
   const getPhotoUrl = (photo: any) => {
     if (!photo.image) return null
     if (photo.image.startsWith("data:image")) return photo.image
-    return supabase.storage.from("photos").getPublicUrl(photo.image).publicUrl
+    return supabase.storage.from("photos").getPublicUrl(photo.image).data.publicUrl
   }
 
   const tabs = [
@@ -577,6 +585,5 @@ export function AdminDashboard() {
         onUpload={handlePhotoUpload}
       />
     </div>
-    
   )
 }

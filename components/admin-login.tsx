@@ -2,17 +2,15 @@
 
 import type React from "react"
 import { useState } from "react"
+import { useAdminAuth } from "@/lib/admin-auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Shield, Eye, EyeOff } from "lucide-react"
 
-interface AdminLoginProps {
-  onLogin: (success: boolean) => void
-}
-
-export function AdminLogin({ onLogin }: AdminLoginProps) {
+export function AdminLogin() {
+  const { login } = useAdminAuth()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -24,12 +22,9 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
     setIsLoading(true)
     setError("")
 
-    if (username === "admin" && password === "rt14admin") {
-      localStorage.setItem("rt14_admin_logged_in", "true")
-      onLogin(true)
-    } else {
-      setError("Username atau password salah")
-      onLogin(false)
+    const result = await login(username, password)
+    if (!result.success) {
+      setError(result.message || "Login gagal")
     }
 
     setIsLoading(false)

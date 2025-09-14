@@ -1,51 +1,47 @@
-"use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Eye, EyeOff, ArrowLeft } from "lucide-react";
-import { useAdminAuth } from "@/hooks/use-admin-auth";
+"use client"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Shield, Eye, EyeOff, ArrowLeft } from "lucide-react"
+import { useAdminAuth } from "@/hooks/use-admin-auth"
 
 export default function AdminLoginPage() {
-  const { login, isLoggedIn, isLoading } = useAdminAuth();
-  const router = useRouter();
+  const { login, isLoggedIn, isLoading } = useAdminAuth()
+  const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // redirect kalau sudah login
   useEffect(() => {
     if (!isLoading && isLoggedIn()) {
-      router.replace("/admin/dashboard");
+      router.replace("/admin/dashboard")
     }
-  }, [isLoading, isLoggedIn, router]);
+  }, [isLoading, isLoggedIn, router])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError("");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError("")
 
-    if (username === "admin" && password === "rt14admin") {
-      login();
+    const res = await login(email, password)
+    if (res.success) {
+      router.push("/admin/dashboard")
     } else {
-      setError("Username atau password salah");
-      setIsSubmitting(false);
+      setError(res.message)
+      setIsSubmitting(false)
     }
-  };
+  }
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Memuat…</div>;
+    return <div className="min-h-screen flex items-center justify-center">Memuat…</div>
   }
 
-  // kalau sudah login, kita return null agar tidak flash form login
-  if (isLoggedIn()) {
-    return null;
-  }
+  if (isLoggedIn()) return null
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-gray-900 dark:to-gray-950 p-4">
@@ -63,15 +59,14 @@ export default function AdminLoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* form login seperti biasa */}
             <div>
-              <Label htmlFor="username" className="dark:text-gray-200">Username</Label>
+              <Label htmlFor="email" className="dark:text-gray-200">Email</Label>
               <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Masukkan username"
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Masukkan email"
                 required
                 className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
               />
@@ -96,11 +91,7 @@ export default function AdminLoginPage() {
                   className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground dark:text-gray-300" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground dark:text-gray-300" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground dark:text-gray-300" /> : <Eye className="h-4 w-4 text-muted-foreground dark:text-gray-300" />}
                 </Button>
               </div>
             </div>
@@ -133,5 +124,5 @@ export default function AdminLoginPage() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
