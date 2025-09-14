@@ -1,42 +1,45 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Shield, Eye, EyeOff, ArrowLeft } from "lucide-react"
-import { useAdminAuth } from "@/hooks/use-admin-auth"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Shield, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 export default function AdminLoginPage() {
-  const { login, isLoggedIn } = useAdminAuth()
-  const router = useRouter()
+  const { login, isLoggedIn } = useAdminAuth();
+  const router = useRouter();
 
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  if (isLoggedIn()) {
-    router.push("/admin/dashboard")
-    return null
-  }
+  // ✅ redirect hanya di client, bukan di render server
+  useEffect(() => {
+    if (isLoggedIn()) {
+      router.push("/admin/dashboard");
+    }
+  }, [isLoggedIn, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
 
     if (username === "admin" && password === "rt14admin") {
-      login()
+      login();
+      router.push("/admin/dashboard");
     } else {
-      setError("Username atau password salah")
+      setError("Username atau password salah");
     }
 
-    setIsLoading(false)
-  }
+    setIsLoading(false);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-gray-900 dark:to-gray-950 p-4">
@@ -45,13 +48,19 @@ export default function AdminLoginPage() {
           <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-800 rounded-full flex items-center justify-center mx-auto mb-4">
             <Shield className="h-8 w-8 text-emerald-600 dark:text-emerald-300" />
           </div>
-          <CardTitle className="text-2xl font-bold text-foreground dark:text-white">Admin RT 14</CardTitle>
-          <p className="text-muted-foreground dark:text-gray-300">Masuk untuk mengelola website</p>
+          <CardTitle className="text-2xl font-bold text-foreground dark:text-white">
+            Admin RT 14
+          </CardTitle>
+          <p className="text-muted-foreground dark:text-gray-300">
+            Masuk untuk mengelola website
+          </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="username" className="dark:text-gray-200">Username</Label>
+              <Label htmlFor="username" className="dark:text-gray-200">
+                Username
+              </Label>
               <Input
                 id="username"
                 type="text"
@@ -64,7 +73,9 @@ export default function AdminLoginPage() {
             </div>
 
             <div>
-              <Label htmlFor="password" className="dark:text-gray-200">Password</Label>
+              <Label htmlFor="password" className="dark:text-gray-200">
+                Password
+              </Label>
               <div className="relative mt-1">
                 <Input
                   id="password"
@@ -120,5 +131,5 @@ export default function AdminLoginPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
