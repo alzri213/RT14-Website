@@ -1,41 +1,50 @@
-"use client"
-
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Shield, Eye, EyeOff, ArrowLeft } from "lucide-react"
-import { useAdminAuth } from "@/hooks/use-admin-auth"
+"use client";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Shield, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 export default function AdminLoginPage() {
-  const { login, isLoggedIn } = useAdminAuth()
-  const router = useRouter()
+  const { login, isLoggedIn, isLoading } = useAdminAuth();
+  const router = useRouter();
 
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (isLoggedIn()) {
-    router.push("/admin/dashboard")
-    return null
-  }
+  // redirect kalau sudah login
+  useEffect(() => {
+    if (!isLoading && isLoggedIn()) {
+      router.replace("/admin/dashboard");
+    }
+  }, [isLoading, isLoggedIn, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError("");
 
     if (username === "admin" && password === "rt14admin") {
-      login()
+      login();
     } else {
-      setError("Username atau password salah")
+      setError("Username atau password salah");
+      setIsSubmitting(false);
     }
+  };
 
-    setIsLoading(false)
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Memuat…</div>;
+  }
+
+  // kalau sudah login, kita return null agar tidak flash form login
+  if (isLoggedIn()) {
+    return null;
   }
 
   return (
@@ -45,11 +54,16 @@ export default function AdminLoginPage() {
           <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-800 rounded-full flex items-center justify-center mx-auto mb-4">
             <Shield className="h-8 w-8 text-emerald-600 dark:text-emerald-300" />
           </div>
-          <CardTitle className="text-2xl font-bold text-foreground dark:text-white">Admin RT 14</CardTitle>
-          <p className="text-muted-foreground dark:text-gray-300">Masuk untuk mengelola website</p>
+          <CardTitle className="text-2xl font-bold text-foreground dark:text-white">
+            Admin RT 14
+          </CardTitle>
+          <p className="text-muted-foreground dark:text-gray-300">
+            Masuk untuk mengelola website
+          </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* form login seperti biasa */}
             <div>
               <Label htmlFor="username" className="dark:text-gray-200">Username</Label>
               <Input
@@ -100,13 +114,12 @@ export default function AdminLoginPage() {
             <Button
               type="submit"
               className="w-full bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white"
-              disabled={isLoading}
+              disabled={isSubmitting}
             >
-              {isLoading ? "Memproses..." : "Masuk"}
+              {isSubmitting ? "Memproses..." : "Masuk"}
             </Button>
           </form>
 
-          {/* Back to Beranda */}
           <div className="mt-4 text-center">
             <Button
               variant="link"
@@ -120,5 +133,5 @@ export default function AdminLoginPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
