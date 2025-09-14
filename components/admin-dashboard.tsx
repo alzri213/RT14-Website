@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useAdminAuth } from "@/lib/admin-auth-context"
 import { usePhotos } from "@/hooks/use-photos"
+import { useVideos } from "@/hooks/use-videos"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,8 +23,11 @@ import {
   Sun,
   Users,
   Calendar,
+  Activity,
+  Video,
 } from "lucide-react"
 import { PhotoUploadModal } from "@/components/photo-upload-modal"
+import { VideoUploadModal } from "@/components/video-upload-modal"
 
 interface Comment {
   id: string
@@ -48,16 +52,26 @@ interface Visit {
   user_agent: string
 }
 
+interface Activity {
+  id: string
+  type: 'comment' | 'message' | 'visit' | 'photo'
+  timestamp: string
+  description: string
+}
+
 export function AdminDashboard() {
   const router = useRouter()
   const { logout, isLoggedIn } = useAdminAuth()
   const { photos, addPhoto, deletePhoto, editPhoto } = usePhotos()
+  const { videos, addVideo, deleteVideo, editVideo } = useVideos()
   const [activeTab, setActiveTab] = useState("overview")
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [isVideoUploadModalOpen, setIsVideoUploadModalOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState<any>(null)
+  const [editingVideo, setEditingVideo] = useState<any>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
   
@@ -196,6 +210,54 @@ export function AdminDashboard() {
     setIsUploadModalOpen(false)
   }
 
+  const handleVideoUpload = async (uploadData: any) => {
+    const processedVideos = await Promise.all(
+      uploadData.base64Videos.map(
+        (videoBase64: string, index: number) =>
+          new Promise<string>((resolve) => {
+            resolve(videoBase64)
+          })
+      )
+    )
+    for (let i = 0; i < processedVideos.length; i++) {
+      const videoDataUrl = processedVideos[i]
+      const videoTitle =
+        uploadData.files.length > 1
+          ? `${uploadData.title} (${i + 1})`
+          : uploadData.title
+      const duration = await new Promise<number>((resolve, reject) => {
+        const video = document.createElement("video")
+        video.preload = "metadata"
+        video.src = videoDataUrl
+
+        video.onloadedmetadata = () => {
+          resolve(video.duration)
+        }
+
+        video.onerror = (error) => {
+          console.error("Video metadata loading error:", error)
+          reject(new Error("Failed to load video metadata"))
+        }
+
+        // Timeout fallback
+        setTimeout(() => {
+          reject(new Error("Video metadata loading timeout"))
+        }, 10000) // 10 second timeout
+      })
+      await addVideo({
+        title: videoTitle,
+        category: uploadData.category,
+        video: videoDataUrl, // This will be mapped to video_data in the hook
+        duration: Math.floor(duration),
+        date: uploadData.date,
+        description: uploadData.description,
+      })
+    }
+    setIsVideoUploadModalOpen(false)
+  }
+
+
+
   const handleDeletePhoto = (id: string) => {
     if (!confirm("Hapus foto ini?")) return
     deletePhoto(id)
@@ -224,9 +286,11 @@ export function AdminDashboard() {
   const tabs = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "photos", label: "Kelola Foto", icon: ImageIcon },
+    { id: "videos", label: "Kelola Video", icon: Video },
     { id: "comments", label: "Komentar", icon: MessageSquare },
     { id: "messages", label: "Pesan Cepat", icon: MessageSquare },
     { id: "visitors", label: "Pengunjung", icon: Users },
+    { id: "activities", label: "Aktivitas", icon: Activity },
     { id: "settings", label: "Pengaturan", icon: Settings },
   ]
 
@@ -248,6 +312,35 @@ export function AdminDashboard() {
     todayVisits: todayVisits,
     totalMessages: messages.length,
   }
+
+  const activities = useMemo(() => {
+    const acts: Activity[] = []
+    comments.slice(0, 10).forEach(c => acts.push({
+      id: c.id,
+      type: 'comment',
+      timestamp: c.created_at,
+      description: `Komentar baru dari ${c.name}: ${c.message.substring(0, 50)}...`
+    }))
+    messages.slice(0, 10).forEach(m => acts.push({
+      id: m.id.toString(),
+      type: 'message',
+      timestamp: m.created_at,
+      description: `Pesan baru dari ${m.name}: ${m.subject}`
+    }))
+    visits.slice(0, 10).forEach(v => acts.push({
+      id: v.id,
+      type: 'visit',
+      timestamp: v.timestamp,
+      description: `Kunjungan ke ${v.page}`
+    }))
+    photos.slice(0, 10).forEach(p => acts.push({
+      id: p.id,
+      type: 'photo',
+      timestamp: p.date || new Date().toISOString(),
+      description: `Foto '${p.title}' diupload`
+    }))
+    return acts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  }, [comments, messages, visits, photos])
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -400,6 +493,12 @@ export function AdminDashboard() {
                 className="mb-4 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 <Upload className="h-4 w-4 mr-2" /> Tambah Foto
+              </Button>
+              <Button
+                onClick={() => setIsVideoUploadModalOpen(true)}
+                className="mb-4 ml-4 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Upload className="h-4 w-4 mr-2" /> Tambah Video
               </Button>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -568,11 +667,122 @@ export function AdminDashboard() {
             </div>
           )}
 
+          {/* Aktivitas */}
+          {activeTab === "activities" && (
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Aktivitas Terbaru</h2>
+              <div className="space-y-4">
+                {activities.map((activity) => (
+                  <Card key={activity.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-gray-900 dark:text-white">{activity.description}</p>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(activity.timestamp).toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Kelola Video */}
+          {activeTab === "videos" && (
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Kelola Video</h2>
+              <Button
+                onClick={() => setIsVideoUploadModalOpen(true)}
+                className="mb-4 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Upload className="h-4 w-4 mr-2" /> Tambah Video
+              </Button>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {videos.map((video) => (
+                  <Card key={video.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700">
+                    <CardHeader>
+                      <CardTitle className="text-lg">{video.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-2">
+                      {video.video_data ? (
+                        <video
+                          src={video.video_data}
+                          controls
+                          className="w-full h-48 object-cover rounded-lg mb-2"
+                        />
+                      ) : (
+                        <div className="w-full h-48 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-500">
+                          Tidak ada video
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center">
+                        <Button variant="destructive" size="sm" onClick={() => deleteVideo(video.id)}>
+                          <Trash2 className="h-4 w-4 mr-1" /> Hapus
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setEditingVideo(video)}>
+                          <Edit className="h-4 w-4 mr-1" /> Edit
+                        </Button>
+                      </div>
+                      {editingVideo?.id === video.id && (
+                        <div className="mt-2 space-y-2">
+                          <Input
+                            value={editingVideo.title}
+                            onChange={(e) => setEditingVideo({ ...editingVideo, title: e.target.value })}
+                            placeholder="Judul"
+                          />
+                          <Input
+                            value={editingVideo.category}
+                            onChange={(e) => setEditingVideo({ ...editingVideo, category: e.target.value })}
+                            placeholder="Kategori"
+                          />
+                          <Input
+                            value={editingVideo.description}
+                            onChange={(e) => setEditingVideo({ ...editingVideo, description: e.target.value })}
+                            placeholder="Deskripsi"
+                          />
+                          <div className="flex space-x-2">
+                            <Button onClick={() => {
+                              if (editingVideo) {
+                                editVideo(editingVideo.id, {
+                                  title: editingVideo.title,
+                                  category: editingVideo.category,
+                                  description: editingVideo.description,
+                                })
+                                setEditingVideo(null)
+                              }
+                            }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                              Simpan
+                            </Button>
+                            <Button onClick={() => setEditingVideo(null)} variant="outline">
+                              Batal
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Pengaturan */}
           {activeTab === "settings" && (
             <div>
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Pengaturan</h2>
-              <p className="text-gray-700 dark:text-gray-300">Fitur pengaturan akan datang...</p>
+              <div>
+                <p className="text-gray-700 dark:text-gray-300">Fitur pengaturan akan datang...</p>
+                {/* Example setting: Dark mode toggle */}
+                <Button
+                  variant="outline"
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="mt-4"
+                >
+                  {darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -583,6 +793,13 @@ export function AdminDashboard() {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onUpload={handlePhotoUpload}
+      />
+
+      {/* Modal Upload Video */}
+      <VideoUploadModal
+        isOpen={isVideoUploadModalOpen}
+        onClose={() => setIsVideoUploadModalOpen(false)}
+        onUpload={handleVideoUpload}
       />
     </div>
   )
