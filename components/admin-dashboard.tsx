@@ -28,6 +28,8 @@ import {
 } from "lucide-react"
 import { PhotoUploadModal } from "@/components/photo-upload-modal"
 import { VideoUploadModal } from "@/components/video-upload-modal"
+import { FileUploadModal } from "@/components/file-upload-modal"
+import { useFiles } from "@/hooks/use-files"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Menu, X } from "lucide-react"
@@ -58,7 +60,7 @@ interface Visit {
 
 interface Activity {
   id: string
-  type: 'comment' | 'message' | 'visit' | 'photo' | 'video'
+  type: 'comment' | 'message' | 'visit' | 'photo' | 'video' | 'file'
   timestamp: string
   description: string
 }
@@ -90,9 +92,11 @@ export function AdminDashboard() {
   const { logout, isLoggedIn } = useAdminAuth()
   const { photos, addPhoto, deletePhoto, editPhoto } = usePhotos()
   const { videos, addVideo, deleteVideo, editVideo } = useVideos()
+  const { files, addFile, deleteFile } = useFiles()
   const [activeTab, setActiveTab] = useState("overview")
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [isVideoUploadModalOpen, setIsVideoUploadModalOpen] = useState(false)
+  const [isFileUploadModalOpen, setIsFileUploadModalOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(false)
@@ -237,6 +241,38 @@ export function AdminDashboard() {
     setIsVideoUploadModalOpen(false)
   }
 
+  // ----- File Upload -----
+  const handleFileUpload = async (uploadData: any) => {
+    const processedFiles = await Promise.all(
+      uploadData.files.map(
+        (file: File) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onload = (e) => resolve(e.target?.result as string)
+            reader.readAsDataURL(file)
+          })
+      )
+    )
+
+    for (let i = 0; i < processedFiles.length; i++) {
+      const fileDataUrl = processedFiles[i]
+      const originalFile = uploadData.files[i]
+      const fileTitle = uploadData.files.length > 1 ? `${uploadData.title} (${i + 1})` : uploadData.title
+
+      await addFile({
+        title: fileTitle,
+        category: uploadData.category,
+        file: fileDataUrl,
+        fileName: originalFile.name,
+        fileType: originalFile.type,
+        fileSize: originalFile.size,
+        description: uploadData.description,
+      })
+    }
+
+    setIsFileUploadModalOpen(false)
+  }
+
   const handleDeletePhoto = (id: string) => {
     if (!confirm("Hapus foto ini?")) return
     deletePhoto(id)
@@ -279,6 +315,7 @@ export function AdminDashboard() {
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "photos", label: "Kelola Foto", icon: ImageIcon },
     { id: "videos", label: "Kelola Video", icon: Video },
+    { id: "files", label: "Kelola File", icon: Upload },
     { id: "comments", label: "Komentar", icon: MessageSquare },
     { id: "messages", label: "Pesan Cepat", icon: MessageSquare },
     { id: "visitors", label: "Pengunjung", icon: Users },
@@ -417,18 +454,31 @@ export function AdminDashboard() {
           </div>
         )}
 
-        {activeTab === "videos" && (
+        {activeTab === "files" && (
           <div>
-            <Button onClick={() => setIsVideoUploadModalOpen(true)} className="mb-4"><Upload /> Upload Video</Button>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {videos.map(video => (
-                <Card key={video.id}>
-                  <CardHeader><CardTitle>{video.title}</CardTitle></CardHeader>
-                  <CardContent>
-                    <video src={getVideoUrl(video) || ""} controls className="w-full h-48 object-cover mb-2"/>
-                    <p>Duration: {video.duration}s</p>
-                    <Button onClick={()=>setEditingVideo(video)} className="mr-2"><Edit /></Button>
-                    <Button onClick={()=>deleteVideo(video.id)} variant="destructive"><Trash2 /></Button>
+            <Button onClick={() => setIsFileUploadModalOpen(true)} className="mb-4 w-full sm:w-auto"><Upload className="h-4 w-4 mr-2" /> Upload File</Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {files.map(file => (
+                <Card key={file.id} className="overflow-hidden">
+                  <CardHeader className="pb-2"><CardTitle className="text-sm truncate">{file.title}</CardTitle></CardHeader>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Upload className="h-6 w-6 text-gray-500" />
+                      <div>
+                        <p className="text-xs text-gray-600 truncate">{file.file_name}</p>
+                        <p className="text-xs text-gray-500">{(file.file_size / 1024).toFixed(1)} KB</p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button onClick={() => window.open(file.file, '_blank')} size="sm" className="flex-1"><Eye className="h-4 w-4 mr-1" /> Lihat</Button>
+                      <Button onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = file.file;
+                        link.download = file.file_name;
+                        link.click();
+                      }} size="sm" className="flex-1">Download</Button>
+                      <Button onClick={() => deleteFile(file.id)} variant="destructive" size="sm" className="flex-1"><Trash2 className="h-4 w-4 mr-1" /> Hapus</Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -571,6 +621,7 @@ export function AdminDashboard() {
 
       {isUploadModalOpen && <PhotoUploadModal isOpen={isUploadModalOpen} onClose={()=>setIsUploadModalOpen(false)} onUpload={handlePhotoUpload} />}
       {isVideoUploadModalOpen && <VideoUploadModal isOpen={isVideoUploadModalOpen} onClose={()=>setIsVideoUploadModalOpen(false)} onUpload={handleVideoUpload} />}
+      {isFileUploadModalOpen && <FileUploadModal isOpen={isFileUploadModalOpen} onClose={()=>setIsFileUploadModalOpen(false)} onUpload={handleFileUpload} />}
     </div>
   )
 }
